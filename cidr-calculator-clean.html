@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CIDR Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-gray-50 dark:bg-neutral-950 min-h-screen transition-colors">
+    <div class="max-w-3xl mx-auto py-8 sm:py-12 px-4">
+        <div class="mb-6 sm:mb-8">
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-neutral-100">CIDR Calculator</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-neutral-400">Auto-detect IPv4/IPv6 and calculate network details</p>
+        </div>
+
+        <div class="bg-white dark:bg-neutral-900 rounded-lg shadow-sm border border-gray-200 dark:border-neutral-800 p-4 sm:p-6 mb-6">
+            <label for="cidrInput" class="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">CIDR Address</label>
+            <div class="flex gap-3">
+                <input 
+                    type="text" 
+                    id="cidrInput" 
+                    placeholder="e.g. 192.168.1.1/24 or 2001:db8::1/64"
+                    class="flex-1 px-4 py-2 border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-900 dark:text-neutral-100 rounded-md text-sm focus:ring-2 focus:ring-gray-400 focus:border-gray-400 dark:focus:ring-neutral-600 dark:focus:border-neutral-600 outline-none placeholder-gray-400 dark:placeholder-neutral-500"
+                    onkeypress="if(event.key==='Enter')calculate()"
+                >
+                <button 
+                    onclick="calculate()"
+                    class="px-4 py-2 bg-gray-900 dark:bg-neutral-800 text-white text-sm font-medium rounded-md hover:bg-gray-800 dark:hover:bg-neutral-700 transition-colors"
+                >
+                    Calculate
+                </button>
+            </div>
+        </div>
+
+        <div id="results" class="hidden space-y-4">
+            <!-- Input and Correct CIDR -->
+            <div class="bg-white dark:bg-neutral-900 rounded-lg shadow-sm border border-gray-200 dark:border-neutral-800 overflow-hidden">
+                <div class="px-4 sm:px-6 py-2.5 sm:py-3 border-b border-gray-200 dark:border-neutral-800">
+                    <h2 class="text-sm font-medium text-gray-900 dark:text-neutral-100">CIDR Information</h2>
+                </div>
+                <div class="divide-y divide-gray-200 dark:divide-neutral-800">
+                    <div class="px-4 sm:px-6 py-2.5 flex items-center justify-between">
+                        <span class="text-sm text-gray-500 dark:text-neutral-400">Input</span>
+                        <code id="inputDisplay" class="text-sm font-mono text-gray-900 dark:text-neutral-100 break-all"></code>
+                    </div>
+                    <div id="correctedRow" class="px-4 sm:px-6 py-2.5 flex items-center justify-between">
+                        <span class="text-sm text-gray-500 dark:text-neutral-400">Correct CIDR</span>
+                        <code id="correctedCidr" class="text-sm font-mono text-gray-900 dark:text-neutral-100 break-all"></code>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Details -->
+            <div class="bg-white dark:bg-neutral-900 rounded-lg shadow-sm border border-gray-200 dark:border-neutral-800 overflow-hidden">
+                <div class="px-4 sm:px-6 py-2.5 sm:py-3 border-b border-gray-200 dark:border-neutral-800">
+                    <h2 class="text-sm font-medium text-gray-900 dark:text-neutral-100">Network Details</h2>
+                </div>
+                <div class="divide-y divide-gray-200 dark:divide-neutral-800">
+                    <div class="px-4 sm:px-6 py-2.5 flex items-center justify-between">
+                        <span class="text-sm text-gray-500 dark:text-neutral-400">Version</span>
+                        <span id="ipVersion" class="text-sm font-medium text-gray-900 dark:text-neutral-100"></span>
+                    </div>
+                    <div class="px-4 sm:px-6 py-2.5 flex items-center justify-between">
+                        <span class="text-sm text-gray-500 dark:text-neutral-400">Network</span>
+                        <code id="networkAddress" class="text-sm font-mono text-gray-900 dark:text-neutral-100 break-all"></code>
+                    </div>
+                    <div class="px-4 sm:px-6 py-2.5 flex items-center justify-between">
+                        <span class="text-sm text-gray-500 dark:text-neutral-400">Netmask</span>
+                        <code id="subnetMask" class="text-sm font-mono text-gray-900 dark:text-neutral-100 break-all"></code>
+                    </div>
+                    <div class="px-4 sm:px-6 py-2.5 flex items-center justify-between">
+                        <span class="text-sm text-gray-500 dark:text-neutral-400">Broadcast</span>
+                        <code id="broadcastAddress" class="text-sm font-mono text-gray-900 dark:text-neutral-100 break-all"></code>
+                    </div>
+                    <div class="px-4 sm:px-6 py-2.5 flex items-center justify-between">
+                        <span class="text-sm text-gray-500 dark:text-neutral-400">Range</span>
+                        <code id="ipRange" class="text-sm font-mono text-gray-900 dark:text-neutral-100 break-all"></code>
+                    </div>
+                    <div class="px-4 sm:px-6 py-2.5 flex items-center justify-between">
+                        <span class="text-sm text-gray-500 dark:text-neutral-400">Total IPs</span>
+                        <span id="totalIPs" class="text-sm font-mono text-gray-900 dark:text-neutral-100"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        function initDarkMode() {
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+            }
+        }
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            if (e.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        initDarkMode();
+
+        function calculate() {
+            const input = document.getElementById('cidrInput').value.trim();
+            if (!input) return;
+
+            try {
+                const result = parseCIDR(input);
+                displayResults(result);
+            } catch (error) {
+                document.getElementById('results').classList.add('hidden');
+            }
+        }
+
+        function parseCIDR(input) {
+            if (input.includes(':')) {
+                return parseIPv6CIDR(input);
+            } else {
+                return parseIPv4CIDR(input);
+            }
+        }
+
+        function parseIPv4CIDR(input) {
+            const match = input.match(/^([0-9.]+)\/(\d+)$/);
+            if (!match) throw new Error('Invalid CIDR format');
+
+            const [, ipStr, prefixStr] = match;
+            const prefix = parseInt(prefixStr);
+
+            if (prefix < 0 || prefix > 32) throw new Error('Invalid prefix');
+
+            const ipParts = ipStr.split('.');
+            if (ipParts.length !== 4) throw new Error('Invalid IPv4');
+
+            const ip = ipParts.map(part => {
+                const num = parseInt(part);
+                if (isNaN(num) || num < 0 || num > 255) throw new Error('Invalid octet');
+                return num;
+            });
+
+            const ipInt = (ip[0] << 24) | (ip[1] << 16) | (ip[2] << 8) | ip[3];
+            const mask = (0xFFFFFFFF << (32 - prefix)) >>> 0;
+            const networkInt = (ipInt & mask) >>> 0;
+            
+            const networkAddr = [
+                (networkInt >>> 24) & 0xFF,
+                (networkInt >>> 16) & 0xFF,
+                (networkInt >>> 8) & 0xFF,
+                networkInt & 0xFF
+            ].join('.');
+            
+            // Compare input IP string with calculated network address
+            const wasCorrect = ipStr === networkAddr;
+
+            const hostMask = ~mask >>> 0;
+            const broadcastInt = (networkInt | hostMask) >>> 0;
+            const broadcastAddr = [
+                (broadcastInt >>> 24) & 0xFF,
+                (broadcastInt >>> 16) & 0xFF,
+                (broadcastInt >>> 8) & 0xFF,
+                broadcastInt & 0xFF
+            ].join('.');
+
+            const totalHosts = Math.pow(2, 32 - prefix);
+            const usableHosts = prefix === 32 ? 1 : (prefix === 31 ? 2 : totalHosts - 2);
+            
+            let firstUsable, lastUsable;
+            if (prefix === 32) {
+                firstUsable = lastUsable = networkAddr;
+            } else if (prefix === 31) {
+                firstUsable = networkAddr;
+                lastUsable = broadcastAddr;
+            } else {
+                const firstInt = networkInt + 1;
+                const lastInt = broadcastInt - 1;
+                firstUsable = [
+                    (firstInt >>> 24) & 0xFF,
+                    (firstInt >>> 16) & 0xFF,
+                    (firstInt >>> 8) & 0xFF,
+                    firstInt & 0xFF
+                ].join('.');
+                lastUsable = [
+                    (lastInt >>> 24) & 0xFF,
+                    (lastInt >>> 16) & 0xFF,
+                    (lastInt >>> 8) & 0xFF,
+                    lastInt & 0xFF
+                ].join('.');
+            }
+
+            const subnetMask = [
+                (mask >>> 24) & 0xFF,
+                (mask >>> 16) & 0xFF,
+                (mask >>> 8) & 0xFF,
+                mask & 0xFF
+            ].join('.');
+
+            return {
+                version: 'IPv4',
+                cidr: `${networkAddr}/${prefix}`,
+                networkAddress: networkAddr,
+                subnetMask: subnetMask,
+                broadcastAddress: broadcastAddr,
+                firstUsable: firstUsable,
+                lastUsable: lastUsable,
+                ipRangeDisplay: `${networkAddr} - ${broadcastAddr}`,
+                totalHosts: totalHosts,
+                usableHosts: usableHosts,
+                wasCorrected: !wasCorrect,
+                originalInput: input
+            };
+        }
+
+        function parseIPv6CIDR(input) {
+            const match = input.match(/^([0-9a-fA-F:]+)\/(\d+)$/);
+            if (!match) throw new Error('Invalid CIDR format');
+
+            const [, ipStr, prefixStr] = match;
+            const prefix = parseInt(prefixStr);
+
+            if (prefix < 0 || prefix > 128) throw new Error('Invalid prefix');
+
+            const expandedIP = expandIPv6(ipStr);
+            const networkAddr = calculateIPv6Network(expandedIP, prefix);
+            const wasCorrect = normalizeIPv6(expandedIP) === normalizeIPv6(networkAddr);
+            const lastAddr = calculateIPv6LastAddress(networkAddr, prefix);
+            const totalAddresses = prefix === 128 ? BigInt(1) : BigInt(2) ** BigInt(128 - prefix);
+            
+            return {
+                version: 'IPv6',
+                cidr: `${compressIPv6(networkAddr)}/${prefix}`,
+                networkAddress: compressIPv6(networkAddr),
+                subnetMask: calculateIPv6Mask(prefix),
+                broadcastAddress: 'N/A (IPv6 uses multicast)',
+                firstUsable: compressIPv6(networkAddr),
+                lastUsable: compressIPv6(lastAddr),
+                ipRangeDisplay: `${compressIPv6(networkAddr)} - ${compressIPv6(lastAddr)}`,
+                totalHosts: totalAddresses.toString(),
+                usableHosts: totalAddresses.toString(),
+                wasCorrected: !wasCorrect,
+                originalInput: input
+            };
+        }
+
+        function expandIPv6(ip) {
+            if (ip.includes('::')) {
+                const parts = ip.split('::');
+                const leftParts = parts[0] ? parts[0].split(':').filter(p => p) : [];
+                const rightParts = parts[1] ? parts[1].split(':').filter(p => p) : [];
+                const missingParts = 8 - leftParts.length - rightParts.length;
+                const middleParts = Array(missingParts).fill('0000');
+                const allParts = [...leftParts, ...middleParts, ...rightParts];
+                return allParts.map(p => p.padStart(4, '0')).join(':');
+            } else {
+                return ip.split(':').map(p => p.padStart(4, '0')).join(':');
+            }
+        }
+
+        function calculateIPv6Network(expandedIP, prefix) {
+            const parts = expandedIP.split(':').map(p => parseInt(p, 16));
+            
+            for (let i = 0; i < 8; i++) {
+                const bitStart = i * 16;
+                const bitEnd = bitStart + 16;
+                
+                if (prefix >= bitEnd) {
+                    continue;
+                } else if (prefix <= bitStart) {
+                    parts[i] = 0;
+                } else {
+                    const bitsToKeep = prefix - bitStart;
+                    const mask = (0xFFFF << (16 - bitsToKeep)) & 0xFFFF;
+                    parts[i] = parts[i] & mask;
+                }
+            }
+            
+            return parts.map(p => p.toString(16).padStart(4, '0')).join(':');
+        }
+
+        function calculateIPv6LastAddress(networkAddr, prefix) {
+            const parts = networkAddr.split(':').map(p => parseInt(p, 16));
+            
+            for (let i = 0; i < 8; i++) {
+                const bitStart = i * 16;
+                const bitEnd = bitStart + 16;
+                
+                if (prefix >= bitEnd) {
+                    continue;
+                } else if (prefix <= bitStart) {
+                    parts[i] = 0xFFFF;
+                } else {
+                    const bitsToKeep = prefix - bitStart;
+                    const mask = (0xFFFF << (16 - bitsToKeep)) & 0xFFFF;
+                    const hostMask = ~mask & 0xFFFF;
+                    parts[i] = (parts[i] & mask) | hostMask;
+                }
+            }
+            
+            return parts.map(p => p.toString(16).padStart(4, '0')).join(':');
+        }
+
+        function compressIPv6(expandedIP) {
+            const parts = expandedIP.split(':').map(p => parseInt(p, 16).toString(16));
+            
+            let maxZeroStart = -1;
+            let maxZeroLen = 0;
+            let currentZeroStart = -1;
+            let currentZeroLen = 0;
+            
+            for (let i = 0; i < parts.length; i++) {
+                if (parts[i] === '0') {
+                    if (currentZeroStart === -1) {
+                        currentZeroStart = i;
+                        currentZeroLen = 1;
+                    } else {
+                        currentZeroLen++;
+                    }
+                } else {
+                    if (currentZeroLen > maxZeroLen) {
+                        maxZeroStart = currentZeroStart;
+                        maxZeroLen = currentZeroLen;
+                    }
+                    currentZeroStart = -1;
+                    currentZeroLen = 0;
+                }
+            }
+            
+            if (currentZeroLen > maxZeroLen) {
+                maxZeroStart = currentZeroStart;
+                maxZeroLen = currentZeroLen;
+            }
+            
+            if (maxZeroLen >= 2) {
+                const before = parts.slice(0, maxZeroStart);
+                const after = parts.slice(maxZeroStart + maxZeroLen);
+                
+                if (before.length === 0 && after.length === 0) {
+                    return '::';
+                } else if (before.length === 0) {
+                    return '::' + after.join(':');
+                } else if (after.length === 0) {
+                    return before.join(':') + '::';
+                } else {
+                    return before.join(':') + '::' + after.join(':');
+                }
+            } else {
+                return parts.join(':');
+            }
+        }
+
+        function normalizeIPv6(expandedIP) {
+            return expandedIP.toLowerCase();
+        }
+
+        function calculateIPv6Mask(prefix) {
+            const parts = [];
+            for (let i = 0; i < 8; i++) {
+                const bitStart = i * 16;
+                const bitEnd = bitStart + 16;
+                
+                if (prefix >= bitEnd) {
+                    parts.push('ffff');
+                } else if (prefix <= bitStart) {
+                    parts.push('0000');
+                } else {
+                    const bitsToKeep = prefix - bitStart;
+                    const mask = (0xFFFF << (16 - bitsToKeep)) & 0xFFFF;
+                    parts.push(mask.toString(16).padStart(4, '0'));
+                }
+            }
+            return compressIPv6(parts.join(':'));
+        }
+
+        function displayResults(result) {
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('inputDisplay').textContent = result.originalInput;
+            document.getElementById('correctedCidr').textContent = result.cidr;
+
+            // Add visual indicator if corrected
+            const correctedRow = document.getElementById('correctedRow');
+            if (result.wasCorrected) {
+                correctedRow.classList.add('bg-amber-50', 'dark:bg-amber-950/30');
+                correctedRow.querySelector('span').classList.add('text-amber-700', 'dark:text-amber-400');
+                correctedRow.querySelector('code').classList.add('text-amber-900', 'dark:text-amber-300', 'font-semibold');
+            } else {
+                correctedRow.classList.remove('bg-amber-50', 'dark:bg-amber-950/30');
+                correctedRow.querySelector('span').classList.remove('text-amber-700', 'dark:text-amber-400');
+                correctedRow.querySelector('code').classList.remove('text-amber-900', 'dark:text-amber-300', 'font-semibold');
+            }
+
+            document.getElementById('ipVersion').textContent = result.version;
+            document.getElementById('networkAddress').textContent = result.networkAddress;
+            document.getElementById('subnetMask').textContent = result.subnetMask;
+            document.getElementById('broadcastAddress').textContent = result.broadcastAddress;
+            
+            // Show actual IP range
+            document.getElementById('ipRange').textContent = result.ipRangeDisplay;
+            
+            try {
+                const totalCount = BigInt(result.totalHosts);
+                document.getElementById('totalIPs').textContent = totalCount.toLocaleString();
+            } catch (e) {
+                document.getElementById('totalIPs').textContent = result.totalHosts;
+            }
+        }
+    </script>
+</body>
+</html>
